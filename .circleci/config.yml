@@ -1,0 +1,22 @@
+version: '2.1'
+orbs:
+  terraform: 'circleci/terraform@1.1.0'
+workflows:
+  deploy_infrastructure:
+    jobs:
+      - terraform/validate:
+          context: AWS
+          checkout: true
+          backend_config: "bucket=$TERRAFORM_STATE_BUCKET,key=$CIRCLE_PROJECT_REPONAME,region=$AWS_REGION"
+      - terraform/plan:
+          context: AWS
+          checkout: true
+          backend_config: "bucket=$TERRAFORM_STATE_BUCKET,key=$CIRCLE_PROJECT_REPONAME,region=$AWS_REGION"
+          requires:
+            - terraform/validate
+      - terraform/apply:
+          context: AWS
+          checkout: true
+          backend_config: "bucket=$TERRAFORM_STATE_BUCKET,key=$CIRCLE_PROJECT_REPONAME,region=$AWS_REGION"
+          requires:
+            - terraform/plan

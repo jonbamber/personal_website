@@ -4,6 +4,10 @@ variable "domain_name" {
 
 provider "aws" {}
 
+terraform {
+  backend "s3" {}
+}
+
 data "aws_route53_zone" "website" {
   name = var.domain_name
 }
