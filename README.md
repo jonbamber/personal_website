@@ -2,12 +2,12 @@
 
 This repository contains code for a personal static website hosted in S3.
 
-The code defines an S3 bucket with
+The code defines:
 
-* `public-read` ACL
-* public `GetObject` permissions on associate S3 IAM policy
-* bucket objects (website files)
-* Route 53 record
+* A private S3 bucket with website files
+* A validated ACM certificate
+* A CloudFront distribution pointing to the website bucket
+* A Route 53 record pointing to the CloudFront distribution
 
 ## Usage
 
