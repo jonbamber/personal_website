@@ -19,8 +19,8 @@ The following environment variables are used:
 | `AWS_SECRET_ACCESS_KEY` | AWS secret access key |
 | `AWS_REGION` | AWS region |
 | `TERRAFORM_STATE_BUCKET` | S3 bucket for Terraform state file (object prefix is set using the repository name) |
-| `TF_VAR_domain_name` | Domain name for the website (and S3 bucket name), e.g. `example.com` |
-| `TF_VAR_email_address` | Email address inserted into website HTML |
+| `WEBSITE` | Domain name for the website (and S3 bucket name), e.g. `example.com` |
+| `EMAIL` | Email address inserted into website HTML |
 
 A CircleCI configuration file allows the automatic deployment of infrastructure upon a commit being pushed to GitHub
 (environment variables set under a CircleCI context `AWS`); however, infrastructure can be deployed manually through:

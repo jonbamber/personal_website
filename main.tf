@@ -1,3 +1,7 @@
+#=======================================================
+# Sensitive variables passed from environment
+#=======================================================
+
 variable "domain_name" {
   type = string
 }
@@ -6,6 +10,10 @@ variable "email_address" {
   type = string
 }
 
+#=======================================================
+# Local variables
+#=======================================================
+
 locals {
   index_file           = "index.html"
   profile_picture      = "profile_picture.png"
@@ -13,20 +21,30 @@ locals {
   cloudfront_origin_id = aws_s3_bucket.website.bucket
 }
 
+#=======================================================
+# Provider details
+# NB: us-east-1 is required for ACM for CloudFront
+#=======================================================
+
 provider "aws" {}
 
 provider "aws" {
-  alias  = "us-east-1"
+  alias  = "acm"
   region = "us-east-1"
 }
+
+#=======================================================
+# Back end configuration
+# NB: bucket, key & region passed from CircleCI
+#=======================================================
 
 terraform {
   backend "s3" {}
 }
 
-data "aws_route53_zone" "website" {
-  name = var.domain_name
-}
+#=======================================================
+# S3 bucket policy, bucket and objects
+#=======================================================
 
 data "aws_iam_policy_document" "website" {
   statement {
@@ -84,17 +102,6 @@ resource "aws_s3_bucket_policy" "website" {
   policy = data.aws_iam_policy_document.website.json
 }
 
-resource "aws_route53_record" "website" {
-  name    = var.domain_name
-  zone_id = data.aws_route53_zone.website.zone_id
-  type    = "A"
-  alias {
-    name                   = aws_cloudfront_distribution.website.domain_name
-    zone_id                = aws_cloudfront_distribution.website.hosted_zone_id
-    evaluate_target_health = false
-  }
-}
-
 resource "aws_s3_bucket_object" "index_document" {
   content      = templatefile("${path.module}/website/${local.index_file}", { email_address = var.email_address })
   bucket       = aws_s3_bucket.website.id
@@ -121,12 +128,40 @@ resource "aws_s3_bucket_object" "favicon" {
   etag         = filemd5("${path.module}/website/${local.favicon}")
 }
 
+#=======================================================
+# ACM certificate & validation
+#=======================================================
+
 resource "aws_acm_certificate" "certificate" {
-  provider          = aws.us-east-1 # Necessary for CloudFront use
+  provider          = aws.acm # Necessary for CloudFront use
   domain_name       = var.domain_name
   validation_method = "DNS"
   lifecycle {
     create_before_destroy = true
+  }
+}
+
+resource "aws_acm_certificate_validation" "certificate" {
+  provider                = aws.acm # Necessary for CloudFront use
+  certificate_arn         = aws_acm_certificate.certificate.arn
+  validation_record_fqdns = aws_route53_record.certificate_validation.*.fqdn
+}
+
+#=======================================================
+# Route 53 & validation
+#=======================================================
+
+data "aws_route53_zone" "website" {
+  name = var.domain_name
+}
+resource "aws_route53_record" "website" {
+  name    = var.domain_name
+  zone_id = data.aws_route53_zone.website.zone_id
+  type    = "A"
+  alias {
+    name                   = aws_cloudfront_distribution.website.domain_name
+    zone_id                = aws_cloudfront_distribution.website.hosted_zone_id
+    evaluate_target_health = false
   }
 }
 
@@ -139,11 +174,9 @@ resource "aws_route53_record" "certificate_validation" {
   ttl     = 60
 }
 
-resource "aws_acm_certificate_validation" "certificate" {
-  provider                = aws.us-east-1 # Necessary for CloudFront use
-  certificate_arn         = aws_acm_certificate.certificate.arn
-  validation_record_fqdns = aws_route53_record.certificate_validation.*.fqdn
-}
+#=======================================================
+# CloudFront distribution
+#=======================================================
 
 resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {}
 
@@ -198,6 +231,10 @@ resource "aws_cloudfront_distribution" "website" {
     ssl_support_method  = "sni-only"
   }
 }
+
+#=======================================================
+# Outputs
+#=======================================================
 
 output "website_address" {
   value = aws_route53_record.website.fqdn
