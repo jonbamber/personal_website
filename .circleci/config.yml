@@ -1,22 +1,48 @@
-version: '2.1'
+version: 2.1
 orbs:
-  terraform: 'circleci/terraform@1.1.0'
-workflows:
-  deploy_infrastructure:
-    jobs:
-      - terraform/validate:
-          context: AWS
-          checkout: true
-          backend_config: "bucket=$TERRAFORM_STATE_BUCKET,key=$CIRCLE_PROJECT_REPONAME,region=$AWS_REGION"
+  terraform: circleci/terraform@2.1.0
+jobs:
+  Create and validate ACM certificate:
+    executor: terraform/default
+    working_directory: ~
+    steps:
+      - checkout:
+          path: ~
       - terraform/plan:
-          context: AWS
-          checkout: true
-          backend_config: "bucket=$TERRAFORM_STATE_BUCKET,key=$CIRCLE_PROJECT_REPONAME,region=$AWS_REGION"
-          requires:
-            - terraform/validate
+          path: terraform/acm/
+          backend_config: "bucket=${TERRAFORM_STATE_BUCKET},key=website/acm,region=${AWS_REGION}"
+          workspace: ""
+          var: domain_name=${WEBSITE}
       - terraform/apply:
-          context: AWS
-          checkout: true
-          backend_config: "bucket=$TERRAFORM_STATE_BUCKET,key=$CIRCLE_PROJECT_REPONAME,region=$AWS_REGION"
-          requires:
-            - terraform/plan
+          path: terraform/acm/
+          backend_config: "bucket=${TERRAFORM_STATE_BUCKET},key=website/acm,region=${AWS_REGION}"
+          workspace: ""
+          var: domain_name=${WEBSITE}
+  Create main website:
+    executor: terraform/default
+    working_directory: ~
+    steps:
+      - checkout:
+          path: ~
+      - terraform/plan:
+          path: terraform/website/
+          backend_config: "bucket=${TERRAFORM_STATE_BUCKET},key=website/website,region=${AWS_REGION}"
+          var: domain_name=${WEBSITE},email_address=${EMAIL}
+      - terraform/apply:
+          path: terraform/website/
+          backend_config: "bucket=${TERRAFORM_STATE_BUCKET},key=website/website,region=${AWS_REGION}"
+          var: domain_name=${WEBSITE},email_address=${EMAIL}
+workflows:
+  version: 2
+  Create website:
+    jobs:
+      - Create and validate ACM certificate:
+          context:
+            - personal
+            - AWS
+      - Create main website:
+          context:
+            - personal
+            - AWS
+          requires: 
+            - Create and validate ACM certificate

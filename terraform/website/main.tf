@@ -43,8 +43,28 @@ terraform {
 }
 
 #=======================================================
-# S3 bucket policy, bucket and objects
+# S3 bucket, bucket policy and bucket objects
 #=======================================================
+
+resource "aws_s3_bucket" "website" {
+  bucket = var.domain_name
+  acl    = "private"
+
+  force_destroy = true
+
+  website {
+    index_document = local.index_file
+    error_document = local.index_file
+  }
+
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm = "AES256"
+      }
+    }
+  }
+}
 
 data "aws_iam_policy_document" "website" {
   statement {
@@ -77,33 +97,13 @@ data "aws_iam_policy_document" "website" {
   }
 }
 
-resource "aws_s3_bucket" "website" {
-  bucket = var.domain_name
-  acl    = "private"
-
-  force_destroy = true
-
-  website {
-    index_document = local.index_file
-    error_document = local.index_file
-  }
-
-  server_side_encryption_configuration {
-    rule {
-      apply_server_side_encryption_by_default {
-        sse_algorithm = "AES256"
-      }
-    }
-  }
-}
-
 resource "aws_s3_bucket_policy" "website" {
   bucket = aws_s3_bucket.website.id
   policy = data.aws_iam_policy_document.website.json
 }
 
 resource "aws_s3_bucket_object" "index_document" {
-  content      = templatefile("${path.module}/website/${local.index_file}", { email_address = var.email_address })
+  content      = templatefile("${path.module}/../../website_files/${local.index_file}", { email_address = var.email_address })
   bucket       = aws_s3_bucket.website.id
   key          = local.index_file
   acl          = "private"
@@ -111,72 +111,32 @@ resource "aws_s3_bucket_object" "index_document" {
 }
 
 resource "aws_s3_bucket_object" "profile_picture" {
-  source       = "${path.module}/website/${local.profile_picture}"
+  source       = "${path.module}/../../website_files/${local.profile_picture}"
   bucket       = aws_s3_bucket.website.id
   key          = local.profile_picture
   acl          = "private"
   content_type = "image/png"
-  etag         = filemd5("${path.module}/website/${local.profile_picture}")
+  etag         = filemd5("${path.module}/../../website_files/${local.profile_picture}")
 }
 
 resource "aws_s3_bucket_object" "favicon" {
-  source       = "${path.module}/website/${local.favicon}"
+  source       = "${path.module}/../../website_files/${local.favicon}"
   bucket       = aws_s3_bucket.website.id
   key          = local.favicon
   acl          = "private"
   content_type = "image/png"
-  etag         = filemd5("${path.module}/website/${local.favicon}")
-}
-
-#=======================================================
-# ACM certificate & validation
-#=======================================================
-
-resource "aws_acm_certificate" "certificate" {
-  provider          = aws.acm # Necessary for CloudFront use
-  domain_name       = var.domain_name
-  validation_method = "DNS"
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-resource "aws_acm_certificate_validation" "certificate" {
-  provider                = aws.acm # Necessary for CloudFront use
-  certificate_arn         = aws_acm_certificate.certificate.arn
-  validation_record_fqdns = aws_route53_record.certificate_validation.*.fqdn
-}
-
-#=======================================================
-# Route 53 & validation
-#=======================================================
-
-data "aws_route53_zone" "website" {
-  name = var.domain_name
-}
-resource "aws_route53_record" "website" {
-  name    = var.domain_name
-  zone_id = data.aws_route53_zone.website.zone_id
-  type    = "A"
-  alias {
-    name                   = aws_cloudfront_distribution.website.domain_name
-    zone_id                = aws_cloudfront_distribution.website.hosted_zone_id
-    evaluate_target_health = false
-  }
-}
-
-resource "aws_route53_record" "certificate_validation" {
-  count   = length(aws_acm_certificate.certificate.domain_validation_options)
-  name    = element(aws_acm_certificate.certificate.domain_validation_options.*.resource_record_name, count.index)
-  type    = element(aws_acm_certificate.certificate.domain_validation_options.*.resource_record_type, count.index)
-  zone_id = data.aws_route53_zone.website.zone_id
-  records = [element(aws_acm_certificate.certificate.domain_validation_options.*.resource_record_value, count.index)]
-  ttl     = 60
+  etag         = filemd5("${path.module}/../../website_files/${local.favicon}")
 }
 
 #=======================================================
 # CloudFront distribution
 #=======================================================
+
+data "aws_acm_certificate" "website_certificate" {
+  provider = aws.acm
+  domain   = var.domain_name
+  statuses = ["ISSUED"]
+}
 
 resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {}
 
@@ -227,8 +187,27 @@ resource "aws_cloudfront_distribution" "website" {
   }
 
   viewer_certificate {
-    acm_certificate_arn = aws_acm_certificate.certificate.arn
+    acm_certificate_arn = data.aws_acm_certificate.website_certificate.arn
     ssl_support_method  = "sni-only"
+  }
+}
+
+#=======================================================
+# Route 53 record
+#=======================================================
+
+data "aws_route53_zone" "website" {
+  name = var.domain_name
+}
+
+resource "aws_route53_record" "website" {
+  name    = var.domain_name
+  zone_id = data.aws_route53_zone.website.zone_id
+  type    = "A"
+  alias {
+    name                   = aws_cloudfront_distribution.website.domain_name
+    zone_id                = aws_cloudfront_distribution.website.hosted_zone_id
+    evaluate_target_health = false
   }
 }
 
