@@ -27,11 +27,38 @@ jobs:
       - terraform/plan:
           path: terraform/website/
           backend_config: "bucket=${TERRAFORM_STATE_BUCKET},key=website/website,region=${AWS_REGION}"
-          var: domain_name=${WEBSITE},email_address=${EMAIL}
+          var: email_address=${EMAIL},domain_name=${WEBSITE}
       - terraform/apply:
           path: terraform/website/
           backend_config: "bucket=${TERRAFORM_STATE_BUCKET},key=website/website,region=${AWS_REGION}"
-          var: domain_name=${WEBSITE},email_address=${EMAIL}
+          var: email_address=${EMAIL},domain_name=${WEBSITE}
+  Create test website:
+    executor: terraform/default
+    working_directory: ~
+    steps:
+      - checkout:
+          path: ~
+      - terraform/plan:
+          path: terraform/website/
+          backend_config: "bucket=${TERRAFORM_STATE_BUCKET},key=website/website,region=${AWS_REGION}"
+          workspace: test
+          var: email_address=${EMAIL},domain_name=${WEBSITE},subdomain=test
+      - terraform/apply:
+          path: terraform/website/
+          backend_config: "bucket=${TERRAFORM_STATE_BUCKET},key=website/website,region=${AWS_REGION}"
+          workspace: test
+          var: email_address=${EMAIL},domain_name=${WEBSITE},subdomain=test
+  Destroy test website:
+    executor: terraform/default
+    working_directory: ~
+    steps:
+      - checkout:
+          path: ~
+      - terraform/destroy:
+          path: terraform/website/
+          backend_config: "bucket=${TERRAFORM_STATE_BUCKET},key=website/website,region=${AWS_REGION}"
+          workspace: test
+          var: email_address=${EMAIL},domain_name=${WEBSITE},subdomain=test
 workflows:
   version: 2
   Create website:
@@ -46,3 +73,31 @@ workflows:
             - AWS
           requires: 
             - Create and validate ACM certificate
+          filters:
+            branches:
+              only: main
+      - Create test website:
+          context:
+            - personal
+            - AWS
+          requires: 
+            - Create and validate ACM certificate
+          filters:
+            branches:
+              ignore: main
+      - Approve test website destruction:
+          type: approval
+          requires:
+            - Create test website
+          filters:
+            branches:
+              ignore: main
+      - Destroy test website:
+          context:
+            - personal
+            - AWS
+          requires: 
+            - Approve test website destruction
+          filters:
+            branches:
+              ignore: main

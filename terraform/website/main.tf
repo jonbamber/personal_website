@@ -6,6 +6,11 @@ variable "domain_name" {
   type = string
 }
 
+variable "subdomain" {
+  type    = string
+  default = ""
+}
+
 variable "email_address" {
   type = string
 }
@@ -19,6 +24,7 @@ locals {
   profile_picture      = "profile_picture.png"
   favicon              = "favicon.png"
   cloudfront_origin_id = aws_s3_bucket.website.bucket
+  domain_name          = var.subdomain == "" ? var.domain_name : join(".", [var.subdomain, var.domain_name])
 }
 
 #=======================================================
@@ -47,7 +53,7 @@ terraform {
 #=======================================================
 
 resource "aws_s3_bucket" "website" {
-  bucket = var.domain_name
+  bucket = local.domain_name
   acl    = "private"
 
   force_destroy = true
@@ -103,7 +109,7 @@ resource "aws_s3_bucket_policy" "website" {
 }
 
 resource "aws_s3_bucket_object" "index_document" {
-  content      = templatefile("${path.module}/../../website_files/${local.index_file}", { email_address = var.email_address })
+  content      = templatefile("${path.module}/../website_files/${local.index_file}", { email_address = var.email_address })
   bucket       = aws_s3_bucket.website.id
   key          = local.index_file
   acl          = "private"
@@ -111,21 +117,21 @@ resource "aws_s3_bucket_object" "index_document" {
 }
 
 resource "aws_s3_bucket_object" "profile_picture" {
-  source       = "${path.module}/../../website_files/${local.profile_picture}"
+  source       = "${path.module}/../website_files/${local.profile_picture}"
   bucket       = aws_s3_bucket.website.id
   key          = local.profile_picture
   acl          = "private"
   content_type = "image/png"
-  etag         = filemd5("${path.module}/../../website_files/${local.profile_picture}")
+  etag         = filemd5("${path.module}/../website_files/${local.profile_picture}")
 }
 
 resource "aws_s3_bucket_object" "favicon" {
-  source       = "${path.module}/../../website_files/${local.favicon}"
+  source       = "${path.module}/../website_files/${local.favicon}"
   bucket       = aws_s3_bucket.website.id
   key          = local.favicon
   acl          = "private"
   content_type = "image/png"
-  etag         = filemd5("${path.module}/../../website_files/${local.favicon}")
+  etag         = filemd5("${path.module}/../website_files/${local.favicon}")
 }
 
 #=======================================================
@@ -152,7 +158,7 @@ resource "aws_cloudfront_distribution" "website" {
   default_root_object = local.index_file
   enabled             = true
   is_ipv6_enabled     = true
-  aliases             = [var.domain_name]
+  aliases             = [local.domain_name]
 
   custom_error_response {
     error_caching_min_ttl = 3000
@@ -201,7 +207,7 @@ data "aws_route53_zone" "website" {
 }
 
 resource "aws_route53_record" "website" {
-  name    = var.domain_name
+  name    = local.domain_name
   zone_id = data.aws_route53_zone.website.zone_id
   type    = "A"
   alias {
@@ -209,12 +215,4 @@ resource "aws_route53_record" "website" {
     zone_id                = aws_cloudfront_distribution.website.hosted_zone_id
     evaluate_target_health = false
   }
-}
-
-#=======================================================
-# Outputs
-#=======================================================
-
-output "website_address" {
-  value = aws_route53_record.website.fqdn
 }
