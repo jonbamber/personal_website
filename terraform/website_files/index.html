@@ -14,15 +14,20 @@
       }
       .header {
         background-color: #1e1e1e;
-        padding: 30px;
+        padding-top: 15px;
+        padding-bottom: 20px;
         text-align: center;
+        position: fixed;
+        top: 0;
+        width: 100%;
+        z-index: 1;
       }
       .header h1 {
-        font-size: 50px;
+        font-size: 38px;
         margin: 0;
       }
       .header p {
-        font-size: 20px;
+        font-size: 18px;
         margin: 0;
         padding-top: 10px;
       }
@@ -31,11 +36,11 @@
         flex-direction: row;
         justify-content: center;
         align-items: center;
-        padding: 50px;
+        padding: 160px;
       }
       .profile-image {
         width: 100%;
-        max-width: 400px;
+        max-width: 200px;
         border-radius: 50%;
         margin-right: 50px;
       }
@@ -48,11 +53,11 @@
         max-width: 600px;
       }
       .profile-info h2 {
-        font-size: 30px;
+        font-size: 20px;
         margin: 0;
       }
       .profile-info p {
-        font-size: 20px;
+        font-size: 18px;
         margin: 20px 0;
       }
       .buttons {
@@ -67,13 +72,46 @@
         background-color: #1e1e1e;
         color: #fff;
         text-decoration: none;
-        font-size: 20px;
+        font-size: 16px;
         transition: all 0.3s ease-in-out;
       }
       .buttons a:hover {
         background-color: #fff;
         color: #1e1e1e;
         transition: all 0.3s ease-in-out;
+      }
+      @media only screen and (max-width: 768px) {
+        .container {
+          flex-direction: column;
+          align-items: center;
+          margin-top: 130px;
+          padding: 10px;
+        }
+        .profile-image {
+          margin-right: 0;
+          margin-bottom: 20px;
+        }
+        .profile-info {
+          max-width: 75%;
+          text-align: center;
+          align-items: center;
+        }
+        .profile-info h2 {
+          font-size: 24px;
+        }
+        .profile-info p {
+          font-size: 16px;
+          margin: 10px 0;
+        }
+        .buttons {
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          text-align: center;
+        }
+        .buttons a {
+          margin: 5px 0;
+        }
       }
     </style>
     <link
@@ -88,7 +126,7 @@
     </div>
     <div class="container">
       <img
-        src="/profile_picture.png"
+        src="./profile_picture.png"
         alt="Profile Picture"
         class="profile-image"
       />
