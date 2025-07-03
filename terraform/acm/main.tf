@@ -1,33 +1,4 @@
 #=======================================================
-# Sensitive variables passed from environment
-#=======================================================
-
-variable "domain_name" {
-  type = string
-}
-
-#=======================================================
-# Provider details
-# NB: us-east-1 is required for ACM for CloudFront
-#=======================================================
-
-provider "aws" {}
-
-provider "aws" {
-  alias  = "acm"
-  region = "us-east-1"
-}
-
-#=======================================================
-# Back end configuration
-# NB: bucket, key & region passed from CircleCI
-#=======================================================
-
-terraform {
-  backend "s3" {}
-}
-
-#=======================================================
 # Hosted zone
 # NB: created by Route53 Registrar through console
 #=======================================================
