@@ -31,7 +31,7 @@ data "aws_iam_policy_document" "website" {
 
     principals {
       identifiers = ["*"]
-      type        = "*"
+      type        = "AWS"
     }
 
     # condition {
