@@ -25,12 +25,19 @@ resource "aws_s3_bucket" "website" {
 data "aws_iam_policy_document" "website" {
   statement {
     sid       = "AllowCloudFrontGetObject"
+    effect    = "Allow"
     actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.website.arn}/*"]
 
     principals {
-      identifiers = ["*"]
-      type        = "AWS"
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.website.arn]
     }
   }
 
@@ -56,6 +63,15 @@ data "aws_iam_policy_document" "website" {
 resource "aws_s3_bucket_policy" "website" {
   bucket = aws_s3_bucket.website.id
   policy = data.aws_iam_policy_document.website.json
+}
+
+resource "aws_s3_bucket_public_access_block" "my_bucket_public_access_block" {
+  bucket = aws_s3_bucket.website.id
+
+  block_public_acls       = true
+  ignore_public_acls      = true
+  block_public_policy     = true
+  restrict_public_buckets = true
 }
 
 resource "aws_s3_bucket_object" "index_document" {
