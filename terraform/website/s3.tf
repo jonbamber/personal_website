@@ -75,10 +75,10 @@ resource "aws_s3_bucket_public_access_block" "my_bucket_public_access_block" {
 }
 
 resource "aws_s3_bucket_object" "index_document" {
-  content      = templatefile("${path.module}/../website_files/${local.index_file}", { email_address = var.email_address })
-  bucket       = aws_s3_bucket.website.id
-  key          = local.index_file
-  acl          = "private"
+  content = templatefile("${path.module}/../website_files/${local.index_file}", { email_address = var.email_address })
+  bucket  = aws_s3_bucket.website.id
+  key     = local.index_file
+  # acl          = "private"
   content_type = "text/html"
 }
 
