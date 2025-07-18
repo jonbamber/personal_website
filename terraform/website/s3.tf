@@ -30,8 +30,8 @@ data "aws_iam_policy_document" "website" {
     resources = ["${aws_s3_bucket.website.arn}/*"]
 
     principals {
-      identifiers = ["*"]
-      type        = "AWS"
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
     }
 
     # condition {
