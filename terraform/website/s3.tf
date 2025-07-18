@@ -34,11 +34,11 @@ data "aws_iam_policy_document" "website" {
       identifiers = [aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn]
     }
 
-    # condition {
-    #   test     = "StringEquals"
-    #   variable = "AWS:SourceArn"
-    #   values   = [aws_cloudfront_distribution.website.arn]
-    # }
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.website.arn]
+    }
   }
 
   statement {
