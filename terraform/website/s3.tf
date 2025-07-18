@@ -33,12 +33,6 @@ data "aws_iam_policy_document" "website" {
       type        = "AWS"
       identifiers = [aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn]
     }
-
-    condition {
-      test     = "StringEquals"
-      variable = "AWS:SourceArn"
-      values   = ["*"]
-    }
   }
 
   statement {
@@ -52,11 +46,11 @@ data "aws_iam_policy_document" "website" {
       identifiers = ["*"]
     }
 
-    # condition {
-    #   test     = "Bool"
-    #   variable = "aws:SecureTransport"
-    #   values   = ["false"]
-    # }
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
   }
 }
 
@@ -68,10 +62,10 @@ resource "aws_s3_bucket_policy" "website" {
 resource "aws_s3_bucket_public_access_block" "my_bucket_public_access_block" {
   bucket = aws_s3_bucket.website.id
 
-  block_public_acls       = true
-  ignore_public_acls      = true
-  block_public_policy     = true
-  restrict_public_buckets = true
+  block_public_acls       = false
+  ignore_public_acls      = false
+  block_public_policy     = false
+  restrict_public_buckets = false
 }
 
 resource "aws_s3_bucket_object" "index_document" {
