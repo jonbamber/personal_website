@@ -34,11 +34,11 @@ data "aws_iam_policy_document" "website" {
       type        = "AWS"
     }
 
-    # condition {
-    #   test     = "StringEquals"
-    #   variable = "AWS:SourceArn"
-    #   values   = [aws_cloudfront_distribution.website.arn]
-    # }
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.website.arn]
+    }
   }
 
   statement {
