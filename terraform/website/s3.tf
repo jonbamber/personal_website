@@ -31,33 +31,33 @@ data "aws_iam_policy_document" "website" {
 
     principals {
       identifiers = ["*"]
-      type        = "AWS"
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.website.arn]
-    }
-  }
-
-  statement {
-    sid       = "EnsureHTTPS"
-    effect    = "Deny"
-    actions   = ["*"]
-    resources = ["${aws_s3_bucket.website.arn}/*"]
-
-    principals {
       type        = "*"
-      identifiers = ["*"]
     }
 
-    condition {
-      test     = "Bool"
-      variable = "aws:SecureTransport"
-      values   = ["false"]
-    }
+    # condition {
+    #   test     = "StringEquals"
+    #   variable = "AWS:SourceArn"
+    #   values   = [aws_cloudfront_distribution.website.arn]
+    # }
   }
+
+  # statement {
+  #   sid       = "EnsureHTTPS"
+  #   effect    = "Deny"
+  #   actions   = ["*"]
+  #   resources = ["${aws_s3_bucket.website.arn}/*"]
+
+  #   principals {
+  #     type        = "*"
+  #     identifiers = ["*"]
+  #   }
+
+  #   condition {
+  #     test     = "Bool"
+  #     variable = "aws:SecureTransport"
+  #     values   = ["false"]
+  #   }
+  # }
 }
 
 resource "aws_s3_bucket_policy" "website" {
