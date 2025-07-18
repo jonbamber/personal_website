@@ -36,7 +36,7 @@ data "aws_iam_policy_document" "website" {
 
     condition {
       test     = "StringEquals"
-      variable = "AWS:SourceArn"
+      variable = "AWS:SourceAccount"
       values   = [aws_cloudfront_distribution.website.arn]
     }
   }
