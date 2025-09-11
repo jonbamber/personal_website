@@ -10,6 +10,16 @@ variable "domain_name" {
 # Provider details
 # NB: us-east-1 is required for ACM for CloudFront
 #=======================================================
+terraform {
+  required_version = "~> 0.14.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
 
 provider "aws" {}
 
