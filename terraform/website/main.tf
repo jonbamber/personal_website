@@ -20,17 +20,27 @@ variable "email_address" {
 #=======================================================
 
 locals {
-  index_file           = "index.html"
-  profile_picture      = "profile_picture.png"
-  favicon              = "favicon.png"
-  cloudfront_origin_id = aws_s3_bucket.website.bucket
-  domain_name          = var.subdomain == "" ? var.domain_name : join(".", [var.subdomain, var.domain_name])
+  index_file      = "index.html"
+  profile_picture = "profile_picture.png"
+  favicon         = "favicon.png"
+  domain_name     = var.subdomain == "" ? var.domain_name : join(".", [var.subdomain, var.domain_name])
 }
 
 #=======================================================
 # Provider details
 # NB: us-east-1 is required for ACM for CloudFront
 #=======================================================
+
+terraform {
+  required_version = "~> 0.14.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
 
 provider "aws" {}
 
@@ -52,23 +62,30 @@ terraform {
 # S3 bucket, bucket policy and bucket objects
 #=======================================================
 
+# S3 bucket for static website
 resource "aws_s3_bucket" "website" {
-  bucket = local.domain_name
-  acl    = "private"
-
+  bucket        = local.domain_name
   force_destroy = true
+}
 
-  website {
-    index_document = local.index_file
-    error_document = local.index_file
+resource "aws_s3_bucket_public_access_block" "website" {
+  bucket = aws_s3_bucket.website.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_website_configuration" "website" {
+  bucket = aws_s3_bucket.website.id
+
+  index_document {
+    suffix = local.index_file
   }
 
-  server_side_encryption_configuration {
-    rule {
-      apply_server_side_encryption_by_default {
-        sse_algorithm = "AES256"
-      }
-    }
+  error_document {
+    key = local.index_file
   }
 }
 
@@ -79,15 +96,15 @@ data "aws_iam_policy_document" "website" {
     resources = ["${aws_s3_bucket.website.arn}/*"]
 
     principals {
-      identifiers = ["*"]
       type        = "AWS"
+      identifiers = [aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn]
     }
   }
 
   statement {
     sid       = "EnsureHTTPS"
     effect    = "Deny"
-    actions   = ["*"]
+    actions   = ["s3:*"]
     resources = ["${aws_s3_bucket.website.arn}/*"]
 
     principals {
@@ -108,11 +125,10 @@ resource "aws_s3_bucket_policy" "website" {
   policy = data.aws_iam_policy_document.website.json
 }
 
-resource "aws_s3_bucket_object" "index_document" {
+resource "aws_s3_object" "index_document" {
   content      = templatefile("${path.module}/../website_files/${local.index_file}", { email_address = var.email_address })
   bucket       = aws_s3_bucket.website.id
   key          = local.index_file
-  acl          = "private"
   content_type = "text/html"
 }
 
@@ -120,7 +136,6 @@ resource "aws_s3_bucket_object" "profile_picture" {
   source       = "${path.module}/../website_files/${local.profile_picture}"
   bucket       = aws_s3_bucket.website.id
   key          = local.profile_picture
-  acl          = "private"
   content_type = "image/png"
   etag         = filemd5("${path.module}/../website_files/${local.profile_picture}")
 }
@@ -129,7 +144,6 @@ resource "aws_s3_bucket_object" "favicon" {
   source       = "${path.module}/../website_files/${local.favicon}"
   bucket       = aws_s3_bucket.website.id
   key          = local.favicon
-  acl          = "private"
   content_type = "image/png"
   etag         = filemd5("${path.module}/../website_files/${local.favicon}")
 }
@@ -149,7 +163,8 @@ resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {}
 resource "aws_cloudfront_distribution" "website" {
   origin {
     domain_name = aws_s3_bucket.website.bucket_regional_domain_name
-    origin_id   = local.cloudfront_origin_id
+    origin_id   = aws_s3_bucket.website.bucket
+
     s3_origin_config {
       origin_access_identity = aws_cloudfront_origin_access_identity.origin_access_identity.cloudfront_access_identity_path
     }
@@ -159,19 +174,10 @@ resource "aws_cloudfront_distribution" "website" {
   enabled             = true
   is_ipv6_enabled     = true
   aliases             = [local.domain_name]
-
-  custom_error_response {
-    error_caching_min_ttl = 3000
-    error_code            = 404
-    response_code         = 200
-    response_page_path    = "/${local.index_file}"
-  }
-
   default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = local.cloudfront_origin_id
-
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = aws_s3_bucket.website.bucket
     viewer_protocol_policy = "redirect-to-https"
     min_ttl                = 0
     default_ttl            = 0
@@ -186,15 +192,16 @@ resource "aws_cloudfront_distribution" "website" {
   }
 
   price_class = "PriceClass_100"
+
   restrictions {
     geo_restriction {
       restriction_type = "none"
     }
   }
-
   viewer_certificate {
-    acm_certificate_arn = data.aws_acm_certificate.website_certificate.arn
-    ssl_support_method  = "sni-only"
+    acm_certificate_arn      = data.aws_acm_certificate.website_certificate.arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 }
 
@@ -210,9 +217,10 @@ resource "aws_route53_record" "website" {
   name    = local.domain_name
   zone_id = data.aws_route53_zone.website.zone_id
   type    = "A"
+
   alias {
     name                   = aws_cloudfront_distribution.website.domain_name
     zone_id                = aws_cloudfront_distribution.website.hosted_zone_id
-    evaluate_target_health = false
+    evaluate_target_health = true
   }
 }
