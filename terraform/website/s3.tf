@@ -65,25 +65,34 @@ resource "aws_s3_bucket_policy" "website" {
   policy = data.aws_iam_policy_document.website.json
 }
 
-resource "aws_s3_object" "index_document" {
-  content      = templatefile("${path.module}/../website_files/${local.index_file}", { email_address = var.email_address })
-  bucket       = aws_s3_bucket.website.id
-  key          = local.index_file
-  content_type = "text/html"
-}
+resource "aws_s3_object" "website_files" {
+  for_each = {
+    for website_file in fileset(local.website_files_dir, "**/*") :
+    website_file => {
+      is_template = endswith(website_file, ".tftpl")
+      key         = trimsuffix(website_file, ".tftpl")
+      source      = "${local.website_files_dir}/${website_file}"
+      file_type   = reverse(split(".", trimsuffix(website_file, ".tftpl")))[0]
+    }
+  }
 
-resource "aws_s3_bucket_object" "profile_picture" {
-  source       = "${path.module}/../website_files/${local.profile_picture}"
-  bucket       = aws_s3_bucket.website.id
-  key          = local.profile_picture
-  content_type = "image/png"
-  etag         = filemd5("${path.module}/../website_files/${local.profile_picture}")
-}
+  bucket = aws_s3_bucket.website.id
+  key    = each.value.key
 
-resource "aws_s3_bucket_object" "favicon" {
-  source       = "${path.module}/../website_files/${local.favicon}"
-  bucket       = aws_s3_bucket.website.id
-  key          = local.favicon
-  content_type = "image/png"
-  etag         = filemd5("${path.module}/../website_files/${local.favicon}")
+  # Look up MIME type - default to arbitrary binary data
+  content_type = lookup(
+    local.mime_type_map,
+    each.value.file_type,
+    "application/octet-stream"
+  )
+
+  # Required only for templated files
+  content = each.value.is_template ? templatefile(
+    each.value.source,
+    local.common_template_vars
+  ) : null
+
+  # Required only for non-templated files
+  source = each.value.is_template ? null : each.value.source
+  etag   = each.value.is_template ? null : filemd5(each.value.source)
 }
