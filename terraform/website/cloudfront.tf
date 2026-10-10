@@ -8,16 +8,18 @@ data "aws_acm_certificate" "website_certificate" {
   statuses = ["ISSUED"]
 }
 
-resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {}
+resource "aws_cloudfront_origin_access_control" "default" {
+  name                              = "s3-oac"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
 
 resource "aws_cloudfront_distribution" "website" {
   origin {
-    domain_name = aws_s3_bucket.website.bucket_regional_domain_name
-    origin_id   = aws_s3_bucket.website.bucket
-
-    s3_origin_config {
-      origin_access_identity = aws_cloudfront_origin_access_identity.origin_access_identity.cloudfront_access_identity_path
-    }
+    domain_name              = aws_s3_bucket.website.bucket_regional_domain_name
+    origin_id                = aws_s3_bucket.website.bucket
+    origin_access_control_id = aws_cloudfront_origin_access_control.default.id
   }
 
   default_root_object = local.index_file
