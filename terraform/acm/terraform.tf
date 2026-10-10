@@ -3,7 +3,7 @@
 # NB: us-east-1 is required for ACM for CloudFront
 #=======================================================
 terraform {
-  required_version = "~> 0.14.0"
+  required_version = "~> 1.16.0"
 
   required_providers {
     aws = {
