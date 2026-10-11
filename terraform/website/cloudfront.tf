@@ -8,8 +8,10 @@ data "aws_acm_certificate" "website_certificate" {
   statuses = ["ISSUED"]
 }
 
+resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {}
+
 resource "aws_cloudfront_origin_access_control" "default" {
-  name                              = "s3-oac"
+  name                              = local.domain_name
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
